@@ -49,7 +49,7 @@ const GroupDetailScreen = ({ route, navigation }) => {
         <View>
             <Divider />
             <TouchableOpacity style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }} 
-                onPress={() => navigation.navigate("Group Member Detail", { member: item})}>
+                onPress={() => navigation.navigate("Member", { member: item})}>
                 <Text>{item.driverName} - {item.kidName}</Text>
                 <Text style={{ color: 'blue' }}>{item.status}</Text>
             </TouchableOpacity>
@@ -67,12 +67,18 @@ const GroupDetailScreen = ({ route, navigation }) => {
     const renderScheduleItem = ({ item }) => (
         <View>
             <Divider />
-            <TouchableOpacity style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }} 
+            <TouchableOpacity  
                 onPress={() => navigation.navigate("Ride Detail", { ride: item, groupID: group.id })}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
                 <Text>{item.date.toDate().toDateString()}</Text>
-                <Text>To {item.direction}</Text>
-                <Text>Driver: {item.driverName}</Text>
                 <Text style={{ color: 'blue' }}>{item.status}</Text>
+                </View>
+                <View style={{flexDirection: 'row', justifyContent: 'space-around', marginVertical:3}}>
+
+                <Text>To {item.direction}</Text>
+                
+                    <Text>Driver: {item.driverName}</Text>
+                </View>
             </TouchableOpacity>
         </View>
     );
@@ -80,7 +86,7 @@ const GroupDetailScreen = ({ route, navigation }) => {
     if (!schedules) {
         return (
             <View style={styles.container}>
-                <Text style={styles.errorText}>No schedule information not available.</Text>
+                <Text style={styles.errorText}>No schedule information is available.</Text>
             </View>
         );
     }
@@ -139,7 +145,7 @@ const GroupDetailScreen = ({ route, navigation }) => {
                 <Text variant="titleMedium">Meeting Spot: {group.meetingSpot}</Text>
                 <Text variant="titleMedium">Meeting Time: {group.meetingTime}</Text>
             </View>
-            <View style={styles.card}>
+            <View style={styles.memberCard}>
                 <Text variant="titleLarge" style={{ marginTop: 15 }}>Members ({members.length}):</Text>
                 <FlatList
                     data={members}
@@ -150,7 +156,7 @@ const GroupDetailScreen = ({ route, navigation }) => {
             <View style={styles.card}>
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline', margin: 5 }}>
                     <Text variant="titleLarge">Schedules ({schedules.length}):</Text>
-                    <Button icon="plus" >Add Schedule</Button>
+                    <Button icon="plus" onPress={()=>navigation.navigate("Schedule Ride")}>Add Schedule</Button>
                 </View>
                 <FlatList
                     data={schedules}
@@ -185,6 +191,18 @@ const GroupDetailScreen = ({ route, navigation }) => {
 
 const styles = StyleSheet.create({
     card: {
+        flex: 0.4,
+        backgroundColor: '#fff',
+        padding: 15,
+        marginVertical: 10,
+        borderRadius: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    memberCard: {
         flex: 0.2,
         backgroundColor: '#fff',
         padding: 15,

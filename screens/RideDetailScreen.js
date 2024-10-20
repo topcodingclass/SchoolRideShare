@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, View, TouchableOpacity, FlatList } from 'react-native';
 import { Text, Button, TextInput, Divider } from 'react-native-paper';
 import { collection, addDoc, doc, updateDoc, Timestamp, getDocs, query } from "firebase/firestore";
 import { db } from '../firebase';
+import MapView, { Polyline } from 'react-native-maps';
+import MapViewDirections from 'react-native-maps-directions';
 
 const RideDetailScreen = ({ route, navigation }) => {
   const { ride, groupID } = route.params || {};
@@ -10,6 +12,10 @@ const RideDetailScreen = ({ route, navigation }) => {
   const [rideTime, setRideTime] = useState('');
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
+  const GOOGLE_MAPS_APIKEY = 'AIzaSyAwZ14E06iyM-L465xhMqZlLltS_FNJEjY';
+  const mapRef = useRef(null);
+  const studentLocation = {lat: 33.89124412029269, long: -117.81936657798876}
+  const driverLocation = {lat: 33.879000660305664, long: -117.85261151157783}
 
   console.log(groupID, ride)
 
@@ -70,10 +76,13 @@ const RideDetailScreen = ({ route, navigation }) => {
   };
 
   const handleSetTime = async (eta) => {
+    const arrivingTime = new Date();
+      arrivingTime.setMinutes(arrivingTime.getMinutes() + eta);
     setRideTime(eta);
     try {
       const rideDocRef = doc(db, "groups", groupID, "schedule", ride.id);
-      await updateDoc(rideDocRef, { eta: eta, status:'en route to pickup' });
+      await updateDoc(rideDocRef, { expectedArriving: arrivingTime, status:'en route to pickup' });
+      console.log("**************** Arriving time setup")
     } catch (e) {
       console.log("Error updating Time", e);
     }
@@ -122,38 +131,51 @@ const RideDetailScreen = ({ route, navigation }) => {
         <Divider />
       </View>
 
-      <View style={styles.etaButtons}>
-
-        {['5 minutes', '10 minutes', '20 minutes', '30 minutes', '45 minutes', '1 hour'].map((time, index) => (
-          <Button style={{ marginVertical: 4 }} key={index} mode="outlined" onPress={() => handleSetTime(time)}>
-            Arrive in {time}
-          </Button>
-        ))}
-      </View>
+      <View style={{ margin: 5, alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between' }}>
+              <Button mode="outlined" onPress={() => handleSetTime(10)}>Arrive in 10 minutes</Button>
+              <Button mode="outlined" onPress={() => handleSetTime(20)}>in 20</Button>
+              <Button mode="outlined" onPress={() => handleSetTime(30)}>in 30</Button>
+            </View>
 
 
       <View style={{ flex: 0.4 }}>
-        <Text variant="titleLarge" style={{ marginTop: 15 }}>Messages ({messages.length}):</Text>
+        <Text variant="titleMedium" style={{ marginTop: 15 }}>Messages ({messages.length}):</Text>
         <FlatList
           data={messages}
           renderItem={renderMessageItem}
           keyExtractor={(item, index) => index.toString()}
-          style={{ marginTop: 20 }}
+         
         />
         <TextInput
           label="Message"
           value={newMessage}
           onChangeText={setNewMessage}
-          multiline
-          numberOfLines={3}
-          style={{ marginVertical: 10 }}
         />
-        <Button mode="contained" onPress={sendMessage}>
+        <Button mode="outlined" onPress={sendMessage}>
           Send message
         </Button>
 
 
       </View>
+      <MapView
+          ref={mapRef}
+          style={{ flex: 1 }}
+          initialRegion={{
+            latitude: (studentLocation.lat + driverLocation.lat) / 2,
+            longitude: (studentLocation.long + driverLocation.long) / 2,
+            latitudeDelta: 0.0922,
+            longitudeDelta: 0.0421,
+          }}
+        >
+          <MapViewDirections
+            origin={{ latitude: driverLocation.lat, longitude: driverLocation.long }}
+            destination={{ latitude: studentLocation.lat, longitude: studentLocation.long }}
+            apikey={GOOGLE_MAPS_APIKEY}
+            strokeWidth={5}
+            strokeColor="hotpink"
+          />
+
+        </MapView>
       <View style={{flex:0.1, marginTop:40}}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
 
@@ -181,6 +203,6 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     marginVertical: 10,
-    flex: 0.3,
+    flex: 0.2,
   },
 });

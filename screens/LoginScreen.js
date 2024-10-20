@@ -10,6 +10,8 @@ const LogInScreen = ({ navigation, route }) => {
   const [password, setPassword] = useState("");
   const [loginFailed, setLoginFailed] = useState(false); // State to track login status
 
+  //driver@email.com
+
   let isFromSignUp = false;
   isFromSignUp = route?.params?.isFromSignUp ?? false;
 

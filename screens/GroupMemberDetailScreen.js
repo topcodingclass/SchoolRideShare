@@ -1,39 +1,73 @@
 import { StyleSheet, View, FlatList } from 'react-native';
-import React, {useState, useEffect} from 'react';
-import { doc, updateDoc } from "firebase/firestore";
+import React, { useState, useEffect } from 'react';
+import { doc, updateDoc, getDoc, getDocs, collection } from "firebase/firestore";
 import { db } from '../firebase';
-import { Provider, TextInput, Text, Button } from 'react-native-paper';
+import { Provider, TextInput, Text, Button, Divider } from 'react-native-paper';
 
 const GroupMemberDetailScreen = ({ route }) => {
-    const {member} = route.params || {};
+    const { member } = route.params || {};
     const [memberInfo, setMemberInfo] = useState(null)
     const [screening, setScreening] = useState([])
+    const [groups, setGroups]=useState([])
     console.log("##############", member)
 
-    useEffect(()=>{
+    useEffect(() => {
         fetchUserData();
         fetchScreeningData();
+        fetchGroups()
     }, [])
 
 
     // Function to fetch user data from Firestore
     const fetchUserData = async () => {
-        setUser({});
-        const docRef = doc(db, "drivers", member.id);
+        console.log("$$$$$$$$$$$$$$$ Fetch user started")
+        const docRef = doc(db, "drivers", member.driverID);
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
-            setMemberInfo({ id: userID, ...docSnap.data() });
+            setMemberInfo({ id: member.driverID, ...docSnap.data() });
         } else {
             console.log("No such document!");
         }
+
+        console.log("$$$$$$$$$$$$$$$ Fetch user", docSnap.data())
+    };
+
+    const fetchGroups = async () => {
+        const querySnapshot = await getDocs(collection(db, "groups"));
+
+        let myGroups = [];
+
+        // Loop through each group and check if you're a member
+        await Promise.all(querySnapshot.docs.map(async (groupDoc) => {
+            const groupData = groupDoc.data();
+
+            // Fetch members subcollection for each group
+            const membersSnapshot = await getDocs(collection(db, "groups", groupDoc.id, "members"));
+
+            const isInGroup = membersSnapshot.docs.some((memberDoc) => {
+                const memberData = memberDoc.data();
+                return memberData.driverID === member.driverID;
+            });
+
+            if (isInGroup) {
+                myGroups.push({ id: groupDoc.id, ...groupData });
+            }
+        }));
+
+        console.log("Groups you're in:", myGroups);
+
+
+        // const docsData = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        // console.log(docsData)
+        setGroups([...myGroups])
     };
 
     const fetchScreeningData = async () => {
-        const querySnapshot = await getDocs(collection(db, "drivers", member.id, "screening"));
+        const querySnapshot = await getDocs(collection(db, "drivers", member.driverID, "screening"));
         const docsData = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
         setScreening(docsData);
-        
+
     };
 
     const updateStatus = async (status) => {
@@ -45,30 +79,48 @@ const GroupMemberDetailScreen = ({ route }) => {
         }
     };
 
-    const renderScreeningItem = ({item}) =>(
-        <View>
-            <Text>{item.name}</Text>
-            <Text>{item.screenDate}</Text>
-            <Text>{item.screenedBy}</Text>
+    const renderScreeningItem = ({ item }) => (
+        <View style={{ marginVertical: 5 }}>
+           
+                <Text>Screend by:{item.screenedBy} {item.screenDate}</Text>
+                <Text>{item.screeningDocument}</Text>
+     
+
+        </View>
+    )
+
+    const renderGroupsItem = ({ item }) => (
+        <View style={{ marginVertical: 5 }}>
+           
+                <Text>{item.name}</Text>
+                <Text>{item.meetingSpot}</Text>
+     
+
         </View>
     )
 
     return (
         <View style={{ flex: 1, padding: 20 }}>
-            <View >
-            <Text variant="titleMedium">Name: {member.kidName}</Text>
-            <Text variant="titleMedium">Kid Name: {member.driverName}</Text>
+            <View style={{ marginVertical: 15 }}>
+                <Text variant="labelLarge">Name: {member.driverName}</Text>
+                <Text variant="labelLarge">Kid Name: {member.kidName}</Text>
             </View>
 
-            <Text>Address:{memberInfo.address} {memberInfo.city}</Text>
+            <Text>Address:{member?.address}, {member?.city}</Text>
             <Text></Text>
 
-            <Text>Screening History:</Text>
-            <FlatList data = {screening} renderItem={renderScreeningItem} />
+            <Text variant="titleMedium">Screening History:</Text>
+            <Divider />
+            <FlatList data={screening} renderItem={renderScreeningItem} />
 
-            <View>
-                <Button title="Approve" onPress={() => updateStatus('approved')} />
-                <Button title="Disapprove" onPress={() => updateStatus('disapproved')} />
+
+            <Text variant="titleMedium">Involved groups:</Text>
+            <Divider />
+            <FlatList data={groups} renderItem={renderGroupsItem} />
+
+            <View style={{flexDirection:'row', justifyContent:'space-around', marginBottom:50}}>
+                <Button mode="contained" onPress={() => updateStatus('approved')}>Approve</Button>
+                <Button mode="contained" onPress={() => updateStatus('disapproved')} >Disapprove</Button>
             </View>
         </View>
     );

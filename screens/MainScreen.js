@@ -11,8 +11,8 @@ const MainScreen = ({ navigation }) => {
     const [modalVisible, setModalVisible] = useState(false);
 
     //From Hannah
-    const [schedules, setSchedules] = useState({});
-    const [groups, setGroups] = useState({});
+    const [schedules, setSchedules] = useState([]);
+    const [groups, setGroups] = useState([]);
     const [todaysRide, setTodaysRide] = useState(null);
     const today = new Date().getDate();
     const month = new Date().getMonth() + 1;
@@ -21,13 +21,38 @@ const MainScreen = ({ navigation }) => {
 
     const userID = auth.currentUser.uid;
 
-    useEffect(() => {
+    const fetchData = async () => {
         fetchUserData();
         fetchKidsData();
         fetchGroups();
         fetchSchedules();
-        fetchTodaysRide();
-    }, []);
+    };
+
+    useEffect(() => {
+        const unsubscribe = navigation.addListener('focus', fetchData);
+        const interval = setInterval(() => updateRidesWithTimeLeft(), 1000);
+        return () => {
+            unsubscribe();
+            clearInterval(interval);
+        };
+    }, [navigation, schedules]);
+
+    const updateRidesWithTimeLeft = () => {
+        const updatedRides = schedules?.map(schedule => {
+            if (schedule.expectedArriving) {
+                const now = new Date();
+                const expectedArriving = schedule.expectedArriving.toDate();
+                const timeLeft = Math.max(0, Math.floor((expectedArriving - now) / 1000));
+                return { ...schedule, timeLeft };
+            } else {
+                return { ...schedule, timeLeft: null };
+            }
+        });
+        setSchedules(updatedRides);
+
+
+        getTodaysRide(updatedRides);
+    };
 
     //From Hannah
 
@@ -80,7 +105,10 @@ const MainScreen = ({ navigation }) => {
         let futureSchedules = [];
 
         // Get the current date
-        const now = new Date();
+        const now = new Date(); // Current date and time
+        // Set the time to 12:00 AM (midnight) for the current date
+        const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+
 
         // Loop through each group and check if you're a member
         await Promise.all(querySnapshot.docs.map(async (groupDoc) => {
@@ -98,165 +126,222 @@ const MainScreen = ({ navigation }) => {
                 console.log("Fetch my group schedule")
                 // Fetch the schedule subcollection for this group
                 const scheduleSnapshot = await getDocs(collection(db, "groups", groupDoc.id, "schedule"));
-                
+
                 // Filter future schedules
                 const futureGroupSchedules = scheduleSnapshot.docs
                     .map((doc) => {
                         const scheduleData = doc.data();
+                        console.log("*******", scheduleData)
                         // Convert Firestore Timestamp to Date
                         const scheduleDate = scheduleData.date.toDate().toDateString()
-                        return { id: doc.id, ...scheduleData, date: scheduleDate, groupID: groupDoc.id };
+                        console.log(scheduleDate, Date(Date.parse(scheduleDate)))
+                        return { id: doc.id, ...scheduleData, date: scheduleDate, groupID: groupDoc.id, firebaseDate: scheduleData.date.toDate() };
                     })
-                   .filter(schedule => schedule.date > now.toDateString()); // Filter for future dates
+                    .filter(schedule => schedule.firebaseDate > todayMidnight); // Filter for future dates
                 console.log("$$$$$$$$$", futureGroupSchedules)
                 // Append to futureSchedules array
                 futureSchedules = [...futureSchedules, ...futureGroupSchedules];
+                futureSchedules.sort((a, b) => a.firebaseDate.getTime() - b.firebaseDate.getTime());
             }
         }));
 
         console.log("Future schedules:", futureSchedules);
         setSchedules([...futureSchedules]);
-   
-};
 
 
-const fetchTodaysRide = async () => {
-    const q = query(collection(db, "schedule"), where("date", "==", date));
-    const querySnapshot = await getDocs(q);
-    const docsData = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    console.log("############### Today's ride", docsData)
-    setTodaysRide([...docsData])
-};
+    };
 
 
-const fetchKidsData = async () => {
-    const querySnapshot = await getDocs(collection(db, "drivers", userID, "kids"));
-    const docsData = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
-    setKids(docsData);
-    if (docsData.length > 0) {
-        setSelectedKid(docsData[0]); // Select the first kid by default
-        setUser(prevUser => ({ 
-            ...prevUser, 
-            kidID: docsData[0].id, 
-            kidName: docsData[0].name 
-        }));
-    }
-};
+    const getTodaysRide = async (futureSchedules) => {
+        //console.log("Get todays ride", futureSchedules)
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // Midnight today
 
-const handleSwitchKid = () => {
-    setModalVisible(true);
-};
+        //console.log("&&&&&&&&&&&&", schedules)
+        const todaysSchedules = futureSchedules.filter(schedule => {
+            const scheduleDate = new Date(schedule.firebaseDate.getFullYear(), schedule.firebaseDate.getMonth(), schedule.firebaseDate.getDate()); // Midnight of schedule's date
+            console.log(scheduleDate.getTime(), today.getTime())
+            return scheduleDate.getTime() === today.getTime(); // Compare only the date portion
+        });
 
-const handleKidSelection = (kid) => {
-    setSelectedKid(kid);
-    setUser(prevUser => ({ 
-        ...prevUser, 
-        kidID: docsData[0].id, 
-        kidName: docsData[0].name 
-    }));
-    setModalVisible(false);
-};
+        //console.log("------Today rides",todaysSchedules);
+        setTodaysRide([...todaysSchedules])
+    };
 
-const renderSchedule = ({ item }) => (
-    <View>
-        <Divider />
-        <Card.Title
-             title={`${item.date} To ${item.direction} `}
-             subtitle ={`${item.driverName}:    ${item.status}`}
-            right={(props) => <IconButton {...props} icon="dots-vertical" onPress={() => navigation.navigate('Ride Detail', {ride:item, groupID: item.groupID})} />}
-        />
-    </View>
-)
 
-const renderGroups = ({ item }) => (
-    <View>
-        <Card.Title
-            title={item.name}
-            right={(props) => <IconButton {...props} icon="dots-vertical" onPress={() => navigation.navigate("Group Detail", { group: item, user:user })} />}
-        />
-
-    </View>
-)
-
-const renderKidItem = ({ item }) => (
-    <TouchableOpacity style={styles.kidItem} onPress={() => handleKidSelection(item)}>
-        <Text style={styles.kidName}>{item.name}</Text>
-        <Text style={styles.kidDetails}>{item.school}, Grade {item.grade}</Text>
-    </TouchableOpacity>
-);
-
-const NoDataComponent = () => (
-    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-      <Text>There is no upcoming ride.</Text>
-    </View>
-  );
-
-return (
-    <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-            <Text style={styles.welcomeText}>Welcome, {user.name}({selectedKid ? selectedKid.name : '__________'})!</Text>
-            <TouchableOpacity style={styles.switchButton} onPress={handleSwitchKid}>
-                <Text style={styles.switchButtonText}>Switch kid</Text>
-            </TouchableOpacity>
-        </View>
-        <Divider />
-        { todaysRide &&
-            <View>
-            <Text style={{ marginLeft: 20 }} variant="titleMedium">Today's Ride</Text>
-            <View>
-                <Text variant='bodyMedium'>{date}: {todaysRide.name} </Text>
-                <Text variant='labelMedium'>Message</Text>
-                {/* <Text variant='labelLarge'>{groups.messages}</Text> */}
-            </View>
-        </View>
+    const fetchKidsData = async () => {
+        const querySnapshot = await getDocs(collection(db, "drivers", userID, "kids"));
+        const docsData = querySnapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+        setKids(docsData);
+        if (docsData.length > 0) {
+            setSelectedKid(docsData[0]); // Select the first kid by default
+            setUser(prevUser => ({
+                ...prevUser,
+                kidID: docsData[0].id,
+                kidName: docsData[0].name
+            }));
         }
-        <View style={{ marginLeft: 20 }}>
-            <Text variant="titleMedium" style={{marginVertical:10}}>Upcoming Rides</Text>
-            <FlatList data={schedules} renderItem={renderSchedule} ListEmptyComponent={NoDataComponent}/>
-        </View>
-        <View style={{ marginLeft: 20 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text variant="titleLarge">My Groups</Text>
-                <Button mode="contained" onPress={() => {
-                    navigation.navigate('Search Group', {user: user});
-                }}>Join Group</Button>
-            </View>
-            <FlatList data={groups} renderItem={renderGroups} />
-        </View>
+    };
 
-        <View style={{ marginLeft: 20 }}>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Text variant="titleLarge">My Walk Groups</Text>
-                <Button mode="contained" onPress={() => {
-                    navigation.navigate('Search Walk Bike Group', {user: user});
-                }}>Join Walk Group</Button>
-            </View>
-            {/* <FlatList data={groups} renderItem={renderGroups} /> */}
-        </View>
+    const handleSwitchKid = () => {
+        setModalVisible(true);
+    };
 
-        {/* Modal for selecting a kid */}
-        <Modal
-            animationType="slide"
-            transparent={true}
-            visible={modalVisible}
-            onRequestClose={() => setModalVisible(false)}
-        >
-            <View style={styles.modalOverlay}>
-                <View style={styles.modalContainer}>
-                    <Text style={styles.modalTitle}>Select a Kid</Text>
-                    <FlatList
-                        data={kids}
-                        renderItem={renderKidItem}
-                        keyExtractor={(item) => item.id}
+    const handleKidSelection = (kid) => {
+        setSelectedKid(kid);
+        setUser(prevUser => ({
+            ...prevUser,
+            kidID: docsData[0].id,
+            kidName: docsData[0].name
+        }));
+        setModalVisible(false);
+    };
+
+    const renderSchedule = ({ item }) => {
+        const timeLeftMinutes = item.timeLeft !== null ? Math.floor(item.timeLeft / 60) : '-';
+        const timeLeftSeconds = item.timeLeft !== null ? item.timeLeft % 60 : '-';
+        const timeLeftText = item.timeLeft !== null ? `Arrives in ${timeLeftMinutes} min ${timeLeftSeconds} sec` : '';
+
+        console.log(item, timeLeftText)
+
+        return (
+            <View>
+                <Divider />
+                <Card.Title
+                    title={`${item.date} To ${item.direction}`}
+                    subtitle={`Driver: ${item.driverName} - ${item.timeLeft !== null && item.timeLeft !== undefined ? timeLeftText : item.status}`}
+                    right={(props) => <IconButton {...props} icon="dots-vertical" onPress={() => navigation.navigate('Ride Detail', { ride: item, groupID: item.groupID })} />}
+                />
+
+            </View>
+        )
+    }
+
+    const renderTodaySchedule = ({ item }) => {
+        const timeLeftMinutes = item.timeLeft !== null ? Math.floor(item.timeLeft / 60) : '-';
+        const timeLeftSeconds = item.timeLeft !== null ? item.timeLeft % 60 : '-';
+        const timeLeftText = item.timeLeft !== null ? `Arrives in ${timeLeftMinutes} min ${timeLeftSeconds} sec` : '';
+
+        console.log(item, timeLeftText)
+
+        return (
+            <View>
+                <Card style={{ elevation: 0, shadowOpacity: 0, borderWidth: 0 }}>
+                    <Card.Title
+                        title={`${item.date} To ${item.direction}`}
+                        subtitle={`Driver: ${item.driverName} - ${item.status}`}
+                        right={(props) => (
+                            <IconButton
+                                {...props}
+                                icon="dots-vertical"
+                                onPress={() => navigation.navigate('Ride Detail', { ride: item, groupID: item.groupID })}
+                            />
+                        )}
                     />
-                    <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>
-                        <Text style={styles.closeButtonText}>Close</Text>
-                    </TouchableOpacity>
-                </View>
+                    <Card.Content>
+                        <Text>
+                            {item.timeLeft !== null && item.timeLeft !== undefined ? (
+                                <Text style={{ color: 'red' }}> {timeLeftText}</Text>
+                            ) : null}
+                        </Text>
+                    </Card.Content>
+                </Card>
+
             </View>
-        </Modal>
-    </SafeAreaView>
-);
+        )
+    }
+
+    const renderGroups = ({ item }) => (
+        <View>
+            <Card.Title
+                title={item.name}
+                right={(props) => <IconButton {...props} icon="dots-vertical" onPress={() => navigation.navigate("Group Detail", { group: item, user: user })} />}
+            />
+
+        </View>
+    )
+
+    const renderKidItem = ({ item }) => (
+        <TouchableOpacity style={styles.kidItem} onPress={() => handleKidSelection(item)}>
+            <Text style={styles.kidName}>{item.name}</Text>
+            <Text style={styles.kidDetails}>{item.school}, Grade {item.grade}</Text>
+        </TouchableOpacity>
+    );
+
+    const NoDataComponent = (text) => (
+        <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+            <Text>There is no {text} ride.</Text>
+        </View>
+    );
+
+    return (
+        <SafeAreaView style={styles.container}>
+            <View style={styles.header}>
+                <TouchableOpacity onPress={() => navigation.navigate("Profile")}>
+                    <Text style={styles.welcomeText}>Welcome, {user.name}({selectedKid ? selectedKid.name : '__________'})!</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.switchButton} onPress={handleSwitchKid}>
+                    <Text style={styles.switchButtonText}>Switch kid</Text>
+                </TouchableOpacity>
+            </View>
+            <Divider />
+            {todaysRide && (
+                <View style={styles.todayRideSection}>
+                    <Text style={styles.todayRideTitle} variant="titleMedium">Today's Ride</Text>
+                    <FlatList
+                        data={todaysRide}
+                        renderItem={renderTodaySchedule}
+                        ListEmptyComponent={() => NoDataComponent("today's")}
+                    />
+                </View>
+            )}
+            <View style={styles.upcomingRideSection}>
+                <Text variant="titleMedium" style={{ marginVertical: 10 }}>Upcoming Rides</Text>
+                <FlatList data={schedules} renderItem={renderSchedule} ListEmptyComponent={() => NoDataComponent("upcoming")} />
+            </View>
+            <View style={{ marginLeft: 20, marginTop: 15 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text variant="titleMedium">My Groups</Text>
+                    <Button mode="text" onPress={() => {
+                        navigation.navigate('Search Group', { user: user });
+                    }}>+ Join Group</Button>
+                </View>
+                <FlatList data={groups} renderItem={renderGroups} />
+            </View>
+
+            <View style={{ marginLeft: 20, marginTop: 15 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text variant="titleMedium">My Walk Groups</Text>
+                    <Button mode="text" onPress={() => {
+                        navigation.navigate('Search Walk Bike Group', { user: user });
+                    }}>+ Join Walk Group</Button>
+                </View>
+                {/* <FlatList data={groups} renderItem={renderGroups} /> */}
+            </View>
+
+            {/* Modal for selecting a kid */}
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={modalVisible}
+                onRequestClose={() => setModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContainer}>
+                        <Text style={styles.modalTitle}>Select a Kid</Text>
+                        <FlatList
+                            data={kids}
+                            renderItem={renderKidItem}
+                            keyExtractor={(item) => item.id}
+                        />
+                        <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeButton}>
+                            <Text style={styles.closeButtonText}>Close</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+        </SafeAreaView>
+    );
 };
 
 const styles = StyleSheet.create({
@@ -329,6 +414,34 @@ const styles = StyleSheet.create({
     closeButtonText: {
         color: 'white',
         fontWeight: 'bold',
+    },
+    todayRideSection: {
+        backgroundColor: '#ebedef',
+        padding: 16,
+        marginVertical: 10,
+        borderRadius: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 5,
+        elevation: 3, // For Android shadow
+    },
+    todayRideTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginBottom: 10,
+        color: '#8a71b0', // Emphasizing color
+    },
+    upcomingRideSection: {
+        backgroundColor: '#f2f4f4',
+        padding: 16,
+        marginVertical: 10,
+        borderRadius: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 5,
+        elevation: 3, // For Android shadow
     },
 });
 

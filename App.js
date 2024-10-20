@@ -11,6 +11,7 @@ import ScheduleRideScreen from './screens/ScheduleRideScreen';
 import RideDetailScreen from './screens/RideDetailScreen';
 import MainScreen from './screens/MainScreen';
 import GroupMemberDetailScreen from './screens/GroupMemberDetailScreen';
+import ProfileScreen from './screens/ProfieScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -29,7 +30,8 @@ const App = () => {
         <Stack.Screen name="Group Detail" component={GroupDetailScreen} />
         <Stack.Screen name="Create Group" component={CreateGroupScreen} />
         <Stack.Screen name="Ride Detail" component={RideDetailScreen} />
-        <Stack.Screen name="Group Member Detail" component={GroupMemberDetailScreen} />
+        <Stack.Screen name="Profile" component={ProfileScreen} />
+        <Stack.Screen name="Member" component={GroupMemberDetailScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   )

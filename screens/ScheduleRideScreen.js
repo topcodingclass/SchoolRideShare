@@ -56,6 +56,7 @@ const ScheduleRideScreen = ({ navigation }) => {
         status:'not started'
     });
     console.log("Document written with ID: ", docRef.id);
+    navigation.navigate("Main")
 
   } catch (e) {
     console.error("Error adding document: ", e);
