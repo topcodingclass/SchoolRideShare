@@ -10,7 +10,7 @@ const RouteTest = () => {
     { latitude: 33.88513797743602, longitude: -117.86672013383348 },
     
   ];
-  const GOOGLE_MAPS_APIKEY = 'AIzaSyAwZ14E06iyM-L465xhMqZlLltS_FNJEjY';
+  const GOOGLE_MAPS_APIKEY = '';
 
   return (
     <View style={styles.container}>
