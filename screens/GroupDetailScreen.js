@@ -11,7 +11,6 @@ const GroupDetailScreen = ({ route, navigation }) => {
     const [message, setMessage] = useState('');
     const [schedules, setSchedules] = useState([])
 
-    // const user = { kidID: '12345', kidName: 'Karate Kid', driverID: '56789', driverName: 'Samurai Ninja' }
     console.log(user)
     navigation.setOptions({ title: group.name })
 
