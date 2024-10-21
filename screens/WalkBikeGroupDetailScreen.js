@@ -13,8 +13,8 @@ const WalkBikeGroupDetailScreen = ({ route, navigation }) => {
     const [schedules, setSchedules] = useState([])
     const [messages, setMessages] = useState([]);
 
-    // const user = { kidID: '12345', kidName: 'Karate Kid', driverID: '56789', driverName: 'Samurai Ninja' }
-    const GOOGLE_MAPS_APIKEY = 'AIzaSyAwZ14E06iyM-L465xhMqZlLltS_FNJEjY';
+
+    const GOOGLE_MAPS_APIKEY = '';
     const destination = { latitude: 33.898118589335326, longitude: -117.79052497114252 };
 
     console.log(user)
