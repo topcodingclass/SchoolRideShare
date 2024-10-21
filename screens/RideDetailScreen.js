@@ -12,7 +12,7 @@ const RideDetailScreen = ({ route, navigation }) => {
   const [rideTime, setRideTime] = useState('');
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
-  const GOOGLE_MAPS_APIKEY = 'AIzaSyAwZ14E06iyM-L465xhMqZlLltS_FNJEjY';
+  const GOOGLE_MAPS_APIKEY = '';
   const mapRef = useRef(null);
   const studentLocation = {lat: 33.89124412029269, long: -117.81936657798876}
   const driverLocation = {lat: 33.879000660305664, long: -117.85261151157783}
